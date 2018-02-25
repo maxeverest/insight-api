@@ -9,13 +9,13 @@ describe('Utils', function() {
     it('should give the correct fee', function(done) {
       var node = {
         services: {
-          fee: {
-            estimateFee: function(blocks, callback) {
+          bitcoind: {
+            estimateFee: function(blocks) {
               switch(blocks) {
-              case 1:
-                return callback(null, 1000 / 1e8);
-              case 3:
-                return callback(null, 3000 / 1e8);
+                case 1:
+                  return 1000;
+                case 3:
+                  return 3000;
               }
             }
           }

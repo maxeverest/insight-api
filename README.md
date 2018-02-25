@@ -2,77 +2,25 @@
 
 A Bitcoin blockchain REST and web socket API service for [Bitcore Node](https://github.com/bitpay/bitcore-node).
 
-This is a backend-only service. If you're looking for the web frontend application, take a look at https://github.com/bitpay/insight-ui.
+This is a backend-only service. If you're looking for the web frontend application, take a look at https://github.com/bitpay/insight.
 
 ## Getting Started
 
-```bashl
-npm install -g bitcore@latest
-bitcore create mynode
+```bash
+npm install -g bitcore-node@latest
+bitcore-node create mynode
 cd mynode
-bitcore install insight-api
-bitcore start
+bitcore-node add insight-api
+bitcore-node start
 ```
 
 The API endpoints will be available by default at: `http://localhost:3001/insight-api/`
 
 ## Prerequisites
 
-- [Bitcore 5.x](https://github.com/bitpay/bitcore)
+- [Bitcore Node 0.2.x](https://github.com/bitpay/bitcore-node)
 
-**Note:** You can use an existing Bitcoin data directory, however `txindex`, `addressindex`, `timestampindex` and `spentindex` needs to be set to true in `bitcoin.conf`, as well as a few other additional fields.
-
-## Notes on Upgrading from v0.3
-
-The unspent outputs format now has `satoshis` and `height`:
-```
-[
-  {
-    "address":"mo9ncXisMeAoXwqcV5EWuyncbmCcQN4rVs",
-    "txid":"d5f8a96faccf79d4c087fa217627bb1120e83f8ea1a7d84b1de4277ead9bbac1",
-    "vout":0,
-    "scriptPubKey":"76a91453c0307d6851aa0ce7825ba883c6bd9ad242b48688ac",
-    "amount":0.000006,
-    "satoshis":600,
-    "confirmations":0,
-    "ts":1461349425
-  },
-  {
-    "address": "mo9ncXisMeAoXwqcV5EWuyncbmCcQN4rVs",
-    "txid": "bc9df3b92120feaee4edc80963d8ed59d6a78ea0defef3ec3cb374f2015bfc6e",
-    "vout": 1,
-    "scriptPubKey": "76a91453c0307d6851aa0ce7825ba883c6bd9ad242b48688ac",
-    "amount": 0.12345678,
-    "satoshis: 12345678,
-    "confirmations": 1,
-    "height": 300001
-  }
-]
-```
-The `timestamp` property will only be set for unconfirmed transactions and `height` can be used for determining block order. The `confirmationsFromCache` is nolonger set or necessary, confirmation count is only cached for the time between blocks.
-
-There is a new `GET` endpoint or raw blocks at `/rawblock/<blockHash>`:
-
-Response format:
-```
-{
-  "rawblock": "blockhexstring..."
-}
-```
-
-There are a few changes to the `GET` endpoint for `/addr/[:address]`:
-
-- The list of txids in an address summary does not include orphaned transactions
-- The txids will be sorted in block order
-- The list of txids will be limited at 1000 txids
-- There are two new query options "from" and "to" for pagination of the txids (e.g. `/addr/[:address]?from=1000&to=2000`)
-
-Some additional general notes:
-- The transaction history for an address will be sorted in block order
-- The response for the `/sync` endpoint does not include `startTs` and `endTs` as the sync is no longer relevant as indexes are built in bitcoind.
-- The endpoint for `/peer` is no longer relevant connection to bitcoind is via ZMQ.
-- `/tx` endpoint results will now include block height, and spentTx related fields will be set to `null` if unspent.
-- `/block` endpoint results does not include `confirmations` and will include `poolInfo`.
+**Note:** You can use an existing Bitcoin data directory, however `txindex` needs to be set to true in `bitcoin.conf`.
 
 ## Notes on Upgrading from v0.2
 
@@ -97,166 +45,88 @@ Plug-in support for Insight API is also no longer available, as well as the endp
 
 Caching support has not yet been added in the v0.3 upgrade.
 
-## Query Rate Limit
-
-To protect the server, insight-api has a built it query rate limiter. It can be configurable in `bitcore-node.json` with:
-``` json
-  "servicesConfig": {
-    "insight-api": {
-      "rateLimiterOptions": {
-        "whitelist": ["::ffff:127.0.0.1"]
-      }
-    }
-  }
-```
-With all the configuration options available: https://github.com/bitpay/insight-api/blob/master/lib/ratelimiter.js#L10-17
-
-Or disabled entirely with:
-``` json
-  "servicesConfig": {
-    "insight-api": {
-      "disableRateLimiter": true
-    }
-  }
-  ```
-  
-
 ## API HTTP Endpoints
 
 ### Block
 ```
-  /insight-api/block/[:hash]
-  /insight-api/block/00000000a967199a2fad0877433c93df785a8d8ce062e5f9b451cd1397bdbf62
+  /api/block/[:hash]
+  /api/block/00000000a967199a2fad0877433c93df785a8d8ce062e5f9b451cd1397bdbf62
 ```
 
 ### Block Index
 Get block hash by height
 ```
-  /insight-api/block-index/[:height]
-  /insight-api/block-index/0
+  /api/block-index/[:height]
+  /api/block-index/0
 ```
 This would return:
 ```
-{
-  "blockHash":"000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"
-}
+{"blockHash":"000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f"}
 ```
 which is the hash of the Genesis block (0 height)
 
-
-### Raw Block
-```
-  /insight-api/rawblock/[:blockHash]
-  /insight-api/rawblock/[:blockHeight]
-```
-
-This would return:
-```
-{
-  "rawblock":"blockhexstring..."
-}
-```
-
-### Block Summaries
-
-Get block summaries by date:
-```
-  /insight-api/blocks?limit=3&blockDate=2016-04-22
-```
-
-Example response:
-```
-{
-  "blocks": [
-    {
-      "height": 408495,
-      "size": 989237,
-      "hash": "00000000000000000108a1f4d4db839702d72f16561b1154600a26c453ecb378",
-      "time": 1461360083,
-      "txlength": 1695,
-      "poolInfo": {
-        "poolName": "BTCC Pool",
-        "url": "https://pool.btcc.com/"
-      }
-    }
-  ],
-  "length": 1,
-  "pagination": {
-    "next": "2016-04-23",
-    "prev": "2016-04-21",
-    "currentTs": 1461369599,
-    "current": "2016-04-22",
-    "isToday": true,
-    "more": true,
-    "moreTs": 1461369600
-  }
-}
-```
-
 ### Transaction
 ```
-  /insight-api/tx/[:txid]
-  /insight-api/tx/525de308971eabd941b139f46c7198b5af9479325c2395db7f2fb5ae8562556c
-  /insight-api/rawtx/[:rawid]
-  /insight-api/rawtx/525de308971eabd941b139f46c7198b5af9479325c2395db7f2fb5ae8562556c
+  /api/tx/[:txid]
+  /api/tx/525de308971eabd941b139f46c7198b5af9479325c2395db7f2fb5ae8562556c
+  /api/rawtx/[:rawid]
+  /api/rawtx/525de308971eabd941b139f46c7198b5af9479325c2395db7f2fb5ae8562556c
 ```
 
 ### Address
 ```
-  /insight-api/addr/[:addr][?noTxList=1][&from=&to=]
-  /insight-api/addr/mmvP3mTe53qxHdPqXEvdu8WdC7GfQ2vmx5?noTxList=1
-  /insight-api/addr/mmvP3mTe53qxHdPqXEvdu8WdC7GfQ2vmx5?from=1000&to=2000
+  /api/addr/[:addr][?noTxList=1&noCache=1]
+  /api/addr/mmvP3mTe53qxHdPqXEvdu8WdC7GfQ2vmx5?noTxList=1
 ```
 
 ### Address Properties
 ```
-  /insight-api/addr/[:addr]/balance
-  /insight-api/addr/[:addr]/totalReceived
-  /insight-api/addr/[:addr]/totalSent
-  /insight-api/addr/[:addr]/unconfirmedBalance
+  /api/addr/[:addr]/balance
+  /api/addr/[:addr]/totalReceived
+  /api/addr/[:addr]/totalSent
+  /api/addr/[:addr]/unconfirmedBalance
 ```
 The response contains the value in Satoshis.
 
 ### Unspent Outputs
 ```
-  /insight-api/addr/[:addr]/utxo
+  /api/addr/[:addr]/utxo[?noCache=1]
 ```
 Sample return:
-```
+``` json
 [
-  {
-    "address":"mo9ncXisMeAoXwqcV5EWuyncbmCcQN4rVs",
-    "txid":"d5f8a96faccf79d4c087fa217627bb1120e83f8ea1a7d84b1de4277ead9bbac1",
-    "vout":0,
-    "scriptPubKey":"76a91453c0307d6851aa0ce7825ba883c6bd9ad242b48688ac",
-    "amount":0.000006,
-    "satoshis":600,
-    "confirmations":0,
-    "ts":1461349425
-  },
-  {
-    "address": "mo9ncXisMeAoXwqcV5EWuyncbmCcQN4rVs",
-    "txid": "bc9df3b92120feaee4edc80963d8ed59d6a78ea0defef3ec3cb374f2015bfc6e",
-    "vout": 1,
-    "scriptPubKey": "76a91453c0307d6851aa0ce7825ba883c6bd9ad242b48688ac",
-    "amount": 0.12345678,
-    "satoshis: 12345678,
-    "confirmations": 1,
-    "height": 300001
-  }
+    {
+      "address": "n2PuaAguxZqLddRbTnAoAuwKYgN2w2hZk7",
+      "txid": "dbfdc2a0d22a8282c4e7be0452d595695f3a39173bed4f48e590877382b112fc",
+      "vout": 0,
+      "ts": 1401276201,
+      "scriptPubKey": "76a914e50575162795cd77366fb80d728e3216bd52deac88ac",
+      "amount": 0.001,
+      "confirmations": 3
+    },
+    {
+      "address": "n2PuaAguxZqLddRbTnAoAuwKYgN2w2hZk7",
+      "txid": "e2b82af55d64f12fd0dd075d0922ee7d6a300f58fe60a23cbb5831b31d1d58b4",
+      "vout": 0,
+      "ts": 1401226410,
+      "scriptPubKey": "76a914e50575162795cd77366fb80d728e3216bd52deac88ac",
+      "amount": 0.001,
+      "confirmation": 6,
+      "confirmationsFromCache": true
+    }
 ]
 ```
 
 ### Unspent Outputs for Multiple Addresses
 GET method:
 ```
-  /insight-api/addrs/[:addrs]/utxo
-  /insight-api/addrs/2NF2baYuJAkCKo5onjUKEPdARQkZ6SYyKd5,2NAre8sX2povnjy4aeiHKeEh97Qhn97tB1f/utxo
+  /api/addrs/[:addrs]/utxo
+  /api/addrs/2NF2baYuJAkCKo5onjUKEPdARQkZ6SYyKd5,2NAre8sX2povnjy4aeiHKeEh97Qhn97tB1f/utxo
 ```
 
 POST method:
 ```
-  /insight-api/addrs/utxo
+  /api/addrs/utxo
 ```
 
 POST params:
@@ -266,25 +136,25 @@ addrs: 2NF2baYuJAkCKo5onjUKEPdARQkZ6SYyKd5,2NAre8sX2povnjy4aeiHKeEh97Qhn97tB1f
 
 ### Transactions by Block
 ```
-  /insight-api/txs/?block=HASH
-  /insight-api/txs/?block=00000000fa6cf7367e50ad14eb0ca4737131f256fc4c5841fd3c3f140140e6b6
+  /api/txs/?block=HASH
+  /api/txs/?block=00000000fa6cf7367e50ad14eb0ca4737131f256fc4c5841fd3c3f140140e6b6
 ```
 ### Transactions by Address
 ```
-  /insight-api/txs/?address=ADDR
-  /insight-api/txs/?address=mmhmMNfBiZZ37g1tgg2t8DDbNoEdqKVxAL
+  /api/txs/?address=ADDR
+  /api/txs/?address=mmhmMNfBiZZ37g1tgg2t8DDbNoEdqKVxAL
 ```
 
 ### Transactions for Multiple Addresses
 GET method:
 ```
-  /insight-api/addrs/[:addrs]/txs[?from=&to=]
-  /insight-api/addrs/2NF2baYuJAkCKo5onjUKEPdARQkZ6SYyKd5,2NAre8sX2povnjy4aeiHKeEh97Qhn97tB1f/txs?from=0&to=20
+  /api/addrs/[:addrs]/txs[?from=&to=]
+  /api/addrs/2NF2baYuJAkCKo5onjUKEPdARQkZ6SYyKd5,2NAre8sX2povnjy4aeiHKeEh97Qhn97tB1f/txs?from=0&to=20
 ```
 
 POST method:
 ```
-  /insight-api/addrs/txs
+  /api/addrs/txs
 ```
 
 POST params:
@@ -292,9 +162,6 @@ POST params:
 addrs: 2NF2baYuJAkCKo5onjUKEPdARQkZ6SYyKd5,2NAre8sX2povnjy4aeiHKeEh97Qhn97tB1f
 from (optional): 0
 to (optional): 20
-noAsm (optional): 1 (will omit script asm from results)
-noScriptSig (optional): 1 (will omit the scriptSig from all inputs)
-noSpent (option): 1 (will omit spent information per output)
 ```
 
 Sample output:
@@ -330,7 +197,7 @@ Note: if pagination params are not specified, the result is an array of transact
 ### Transaction Broadcasting
 POST method:
 ```
-  /insight-api/tx/send
+  /api/tx/send
 ```
 POST params:
 ```
@@ -356,17 +223,17 @@ POST response:
 
 ### Historic Blockchain Data Sync Status
 ```
-  /insight-api/sync
+  /api/sync
 ```
 
-### Live Network P2P Data Sync Status
+### Live Network P2P Data Sync Status (Bitcoind runs in the same process)
 ```
-  /insight-api/peer
+  /api/peer
 ```
 
 ### Status of the Bitcoin Network
 ```
-  /insight-api/status?q=xxx
+  /api/status?q=xxx
 ```
 
 Where "xxx" can be:
@@ -379,7 +246,7 @@ Where "xxx" can be:
 
 ### Utility Methods
 ```
-  /insight-api/utils/estimatefee[?nbBlocks=2]
+  /api/utils/estimatefee[?nbBlocks=2]
 ```
 
 
@@ -388,7 +255,7 @@ The web socket API is served using [socket.io](http://socket.io).
 
 The following are the events published by insight:
 
-`tx`: new transaction received from network. This event is published in the 'inv' room. Data will be a app/models/Transaction object.
+'tx': new transaction received from network. This event is published in the 'inv' room. Data will be a app/models/Transaction object.
 Sample output:
 ```
 {
@@ -399,7 +266,7 @@ Sample output:
 ```
 
 
-`block`: new block received from network. This event is published in the `inv` room. Data will be a app/models/Block object.
+'block': new block received from network. This event is published in the 'inv' room. Data will be a app/models/Block object.
 Sample output:
 ```
 {
@@ -409,9 +276,9 @@ Sample output:
 }
 ```
 
-`<bitcoinAddress>`: new transaction concerning <bitcoinAddress> received from network. This event is published in the `<bitcoinAddress>` room.
+'<bitcoinAddress>': new transaction concerning <bitcoinAddress> received from network. This event is published in the '<bitcoinAddress>' room.
 
-`status`: every 1% increment on the sync task, this event will be triggered. This event is published in the `sync` room.
+'status': every 1% increment on the sync task, this event will be triggered. This event is published in the 'sync' room.
 
 Sample output:
 ```
